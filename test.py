@@ -1,176 +1,142 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import random
-board_size = 15
-
-def generate_test_board(board_size):
-    # Determine the number of pieces to place on the board (approximately half)
-    total_pieces = board_size * board_size // 2
-
-    # Create an empty board
-    board = [[' ' for _ in range(board_size)] for _ in range(board_size)]
-
-    # Place black ("B") and white ("W") pieces randomly on the board
-    for _ in range(total_pieces):
-        row, col = random.randint(0, board_size - 1), random.randint(0, board_size - 1)
-        while board[row][col] != ' ':
-            row, col = random.randint(0, board_size - 1), random.randint(0, board_size - 1)
-        board[row][col] = random.choice(['B', 'W'])
-
-    return board
+from gomuku import *
+from ai import *
+import tkinter as tk
 
 def display_board(board):
-    board_size = len(board)
+    # Print column numbers
+    print("   " + "   ".join(str(i) for i in range(len(board[0]))))
+    print("  " + "----" * len(board[0]))
 
-    # Create a brown background
-    brown_background = np.ones((board_size, board_size, 3)) * [0.647, 0.165, 0.165]  # RGB for brown
+    for i, row in enumerate(board):
+        # Print row number
+        print(f"{i} |", end=" ")
 
-    # Set color values for black ("B") and white ("W") pieces
-    brown_background[board == 'B'] = [0, 0, 0]  # Black
-    brown_background[board == 'W'] = [1, 1, 1]  # White
+        # Print board elements
+        print(" | ".join(map(str, row)))
 
-    plt.imshow(brown_background, interpolation='none', extent=[-0.5, board_size - 0.5, -0.5, board_size - 0.5])
-
-    for row in range(board_size):
-        for col in range(board_size):
-            if board[row][col] == 'B':
-                plt.plot(col, board_size - 1 - row, 'ko', markersize=10)
-            elif board[row][col] == 'W':
-                plt.plot(col, board_size - 1 - row, 'wo', markersize=10)
-
-    plt.xticks(range(board_size), labels=[str(col) for col in range(board_size)])
-    plt.yticks(range(board_size), labels=[str(row) for row in range(board_size)])
-
-    plt.gca().invert_yaxis()  # Invert y-axis to match the board orientation
-    plt.grid(True)
-    plt.show()
-
-def evaluate(board, player):
-    # Function to transpose the board (swap rows and columns)
-    def transpose(board):
-        return list(map(list, zip(*board)))
-
-    # Initialize counts for each pattern
-    total_pattern_counts = {}
-
-    # Evaluate rows
-    for row in board:
-        line = ''.join(row)
-        pattern_counts = find_patterns_in_line(line, player)
-        update_total_counts(total_pattern_counts, pattern_counts)
-
-    # Evaluate columns
-    transposed_board = transpose(board)
-    for col in transposed_board:
-        line = ''.join(col)
-        pattern_counts = find_patterns_in_line(line, player)
-        update_total_counts(total_pattern_counts, pattern_counts)
-
-    # Evaluate diagonals
-    diagonals = get_diagonals(board)
-    for diagonal in diagonals:
-        line = ''.join(diagonal)
-        pattern_counts = find_patterns_in_line(line, player)
-        update_total_counts(total_pattern_counts, pattern_counts)
-
-    # Calculate the score based on the number of patterns
-    score = 0
-
-    if total_pattern_counts.get("FiveInRow", 0) != 0:
-        score += 100000
-
-    if total_pattern_counts.get("LiveFourRight", 0) == 1 or total_pattern_counts.get("LiveFourLeft", 0) == 1:
-        score += 15000
-
-    if (total_pattern_counts.get("LiveThreeRight", 0) >= 2 or total_pattern_counts.get("LiveThreeLeft", 0) >= 2 or
-            (total_pattern_counts.get("DeadFour", 0) == 2) or
-            (total_pattern_counts.get("DeadFour", 0) == 1 and (total_pattern_counts.get("LiveThreeRight", 0) == 1 or total_pattern_counts.get("LiveThreeLeft", 0) >= 2))):
-        score += 10000
-
-    if total_pattern_counts.get("LiveThreeRight", 0) or total_pattern_counts.get("LiveThreeLeft", 0) == 2:
-        score += 5000
-
-    if total_pattern_counts.get("DeadFour", 0) != 0:
-        score += 1000
-
-    if total_pattern_counts.get("DeadFour", 0) != 0:
-        score += 300
-
-    if total_pattern_counts.get("DeadFour", 0) != 0:
-        score += total_pattern_counts.get("DeadFour", 0) * 50
-
-    return score
-
-def update_total_counts(total_counts, pattern_counts):
-    for pattern, count in pattern_counts.items():
-        total_counts[pattern] = total_counts.get(pattern, 0) + count
-
-def get_diagonals(board):
-    diagonals = []
-    for i in range(len(board)):
-        diagonal_up = [board[i + k][k] for k in range(min(len(board) - i, len(board[0])))]
-        diagonal_down = [board[k][i + k] for k in range(min(len(board[0]) - i, len(board)))]
-        diagonals.extend([diagonal_up, diagonal_down])
-    return diagonals
+        # Print separator
+        print("  " + "----" * len(row))
 
 
-def find_patterns_in_line(line, player):
-    patterns = {
-        "FiveInRow": "XXXXX",
-        "LiveFourRight": "XXXX0",
-        "LiveFourLeft": "0XXXX",
-        "DeadFour": "1XXXX1",
-        "LiveThreeRight": "XXX02",
-        "LiveThreeLeft": "20XXX",
-        "DeadThree": "1XXX1",
-        "LiveTwoRight": "XX022",
-        "LiveTwoLeft": "220XX",
-        "DeadTwo": "1XX12"
-    }
+def display_board_with_relevant_moves(board, relevant_moves=None):
+    # Print column numbers
+    print("   " + "   ".join(str(i) for i in range(len(board[0]))))
+    print("  " + "----" * len(board[0]))
 
-    # Initialize counts for each pattern
-    pattern_counts = {pattern: 0 for pattern in patterns}
+    for i, row in enumerate(board):
+        # Print row number
+        print(f"{i} |", end=" ")
 
-    # Iterate over each pattern and count occurrences in the line
-    for pattern_name, pattern_mask in patterns.items():
-        pattern_length = len(pattern_mask)
-        i = 0
-        while i < len(line) - pattern_length + 1:
-            substring = line[i:i + pattern_length]
-            if is_match(substring, pattern_mask, player):
-                pattern_counts[pattern_name] += 1
-                # Remove the matched substring from the line
-                line = line[:i] + ' ' * pattern_length + line[i + pattern_length:]
+        # Print board elements with 'R' for relevant moves
+        for j, element in enumerate(row):
+            if (i, j) in relevant_moves:
+                print(f"R{element}", end=" | ")
             else:
-                i += 1
+                print(f" {element} ", end=" | ")
 
-    return pattern_counts
+        # Print separator
+        print("\n  " + "----" * len(row))
 
-def is_match(substring, mask, player):
-    if len(substring) != len(mask):
-        raise ValueError("Length of substring and mask must be the same.")
+def display_board_with_eval_diff(board, current_player):
+    # Print column numbers
+    print("   " + "   ".join(str(i) for i in range(len(board[0]))))
+    print("  " + "----" * len(board[0]))
 
-    # Iterate through each character in the substring and mask
-    for sub_char, mask_char in zip(substring, mask):
-        if mask_char == 'X':
-            # For 'X', check if it matches the current player
-            if sub_char != player:
-                return False
-        elif mask_char == '0':
-            # For '0', check if it is an empty space
-            if sub_char != ' ':
-                return False
-        elif mask_char == '1':
-            # For '1', check if it matches the opponent
-            opponent = "W"
-            if sub_char != opponent:
-                return False
-        else:
-            pass
-    return True
+    for i, row in enumerate(board):
+        # Print row number
+        print(f"{i} |", end=" ")
 
-board = generate_test_board(board_size)
-display_board(board)
-print(evaluate(board, 'B'))
+        for j, cell in enumerate(row):
+            # Print board elements
+            print(f" {cell} ", end="")
+
+            # Print evaluation difference for each empty move
+            if cell == ' ':
+                board_copy = [row.copy() for row in board]
+                board_copy[i][j] = current_player
+                eval_before = evaluate(board)
+                eval_after = evaluate(board_copy)
+                eval_diff = eval_after - eval_before
+                print(f"({eval_diff:+})", end="")
+            else:
+                print("   ", end="")
+
+            # Print separator
+            if j < len(row) - 1:
+                print("|", end="")
+
+        print()
+
+        # Print separator
+        if i < len(board) - 1:
+            print("  " + "----" * len(row))
 
 
+
+def testminimax(board, depth, alpha, beta, maximizing_player):
+
+    if depth == 0: #or get_winning_condition
+        return evaluate(board)
+
+    relevant_moves = find_relevant_area(board, "B")
+
+    if maximizing_player:
+        eval = -math.inf
+        for move in relevant_moves:
+            row, col = move
+            if place_piece(board, "B", row, col):
+                eval = max(eval, minimax(board, depth-1, alpha, beta, False))
+                remove_piece(board, "B", row, col)
+                if eval > beta:
+                    break
+                alpha = max(alpha, eval)
+                
+        return eval
+            
+    else:
+        eval = math.inf
+        for move in relevant_moves:
+            row, col = move
+            if place_piece(board, "W", row, col):
+                eval = min(eval, minimax(board, depth-1, alpha, beta, True))
+                remove_piece(board, "W", row, col)
+                if eval < alpha:
+                    break
+                beta = min(beta, eval)
+                
+        return eval
+
+
+def testai(board):
+    relevant_moves = find_relevant_area(board, "B")
+    
+    best_move = None
+    best_score = -math.inf
+
+    for move in relevant_moves:
+        row, col = move
+        if place_piece(board, "B", row, col):
+            # Use the minimax algorithm for AI's move
+            score = minimax(board, 3, -math.inf, math.inf, True)
+            remove_piece(board, "B", row, col)
+            if score > best_score:
+                best_score = score
+                best_move = move
+              # Undo the move
+
+    return best_move
+
+root = tk.Tk()
+
+def display_board(board):
+    for i, row in enumerate(board):
+        for j, elem in enumerate(row):
+            label = tk.Label(root, text=elem, width=4, height=2, relief="ridge", borderwidth=2)
+            label.grid(row=i, column=j)
+
+testboard = [[' ' for _ in range(10)] for _ in range(10)]
+
+
+
+testdisplay_board(testboard)
+root.mainloop()
